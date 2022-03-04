@@ -32,6 +32,19 @@ import vavi.net.ods.OnlineDisk.OpticalDrive;
 public class OdsServer {
     static final Logger logging = Logger.getLogger(OdsServer.class.getName());
 
+    static Preferences config = Preferences.userNodeForPackage(OdsServer.class);
+
+    static {
+        try {
+            String mountPoint = System.getProperty("vavi.net.ods.OdsServer.mountPoint");
+            if (mountPoint != null) {
+                config.put("root", mountPoint);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     Server server;
 
     Tools tools = Tools.getInstance();
@@ -40,7 +53,6 @@ public class OdsServer {
         void update() throws IOException;
     }
 
-    Preferences config;
     List<OnlineDisk> drives;
     List<OnlineDisk> images;
     Plugin plugin;
@@ -63,12 +75,12 @@ public class OdsServer {
 
     // property
     public String host() {
-        return config.get("host", tools.get_local_ip().toString());
+        return config.get("host", tools.get_local_ip().getHostAddress());
     }
 
     // property
     public int port() {
-        return config.getInt("port", 65432);
+        return config.getInt("port", 49152);
     }
 
     public String root() {
@@ -105,7 +117,9 @@ public class OdsServer {
         }
 
         if (changed) {
-            plugin.update();
+            if (plugin != null) {
+                plugin.update();
+            }
         }
     }
 
@@ -157,7 +171,7 @@ public class OdsServer {
     }
 
     public static void main(String[] args) throws IOException {
-        logging.info("Starting pyods remote disk server");
+        logging.info("Starting vavi-nio-ods remote disk server");
         OdsServer s = new OdsServer();
         s.run();
     }
