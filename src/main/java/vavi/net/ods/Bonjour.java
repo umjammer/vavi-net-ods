@@ -10,10 +10,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import javax.jmdns.JmDNS;
 import javax.jmdns.JmmDNS;
 import javax.jmdns.ServiceInfo;
+import javax.jmdns.impl.JmmDNSImpl;
+import javax.jmdns.impl.NetworkTopologyEventImpl;
 
 import vavi.net.ods.OdsServer.Plugin;
+import vavi.util.Debug;
 
 
 public class Bonjour implements Plugin {
@@ -32,6 +36,7 @@ public class Bonjour implements Plugin {
     public void update() throws IOException {
         remove();
         String hostname = InetAddress.getLocalHost().getHostName();
+Debug.println("hostname: " + hostname);
 
         Map<String, String> desc = new HashMap<>();
         desc.put("sys", "waMA=A4:BA:DB:E7:89:CD,adVF=0x4,adDT=0x3,adCC=1");
@@ -44,13 +49,23 @@ public class Bonjour implements Plugin {
         }
 
         info = ServiceInfo.create(
-            "_odisk._tcp.local.",
-            String.format("%s._odisk._tcp.local.", hostname),
-            server.host(),
+            server.host() + "@" + hostname + "_odisk._tcp.local.",
+            server.host() + "@" + hostname,
             server.port(),
             0, 0,
             desc
         );
+Debug.println("host: " + server.host() + ":" + server.port());
+Debug.println("info: " + info);
+
+        ((JmmDNSImpl) zeroconf).inetAddressAdded(new NetworkTopologyEventImpl(
+            JmDNS.create(InetAddress.getByName("localhost")), InetAddress.getByName("localhost")));
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e1) {
+            e1.printStackTrace();
+        }
 
         add();
     }
@@ -60,6 +75,7 @@ public class Bonjour implements Plugin {
             return;
         }
         zeroconf.registerService(info);
+Debug.println("added");
     }
 
     void remove() {
@@ -67,6 +83,7 @@ public class Bonjour implements Plugin {
             return;
         }
         zeroconf.unregisterService(info);
+Debug.println("removed");
     }
 
     protected void finalize() throws IOException {
