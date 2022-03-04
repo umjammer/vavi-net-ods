@@ -6,7 +6,18 @@
 
 package vavi.net.ods;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+
+import vavi.util.Debug;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 /**
@@ -17,10 +28,65 @@ import org.junit.jupiter.api.Test;
  */
 class OdsTest {
 
+    static {
+        System.setProperty("vavi.util.logging.VaviFormatter.extraClassMethod",
+                "(" +
+                "org\\.slf4j\\.impl\\.JDK14LoggerAdapter#.+" +
+                "|" +
+                "sun\\.util\\.logging\\.LoggingSupport#log" +
+                "|" +
+                "sun\\.util\\.logging\\.PlatformLogger#fine" +
+                "|" +
+                "jdk\\.internal\\.event\\.EventHelper#logX509CertificateEvent" +
+                "|" +
+                "sun\\.util\\.logging\\.PlatformLogger.JavaLoggerProxy#doLog" +
+                ")");
+    }
+
+    static String mountPoint;
+
+    @BeforeAll
+    static void setup() {
+        mountPoint = System.getProperty("vavi.net.ods.OdsServer.mountPoint");
+Debug.println("mountPoint:" + mountPoint);
+    }
+
     @Test
-    void test() throws Exception {
+    @Disabled
+    void test0() throws Exception {
         OdsServer server = new OdsServer();
-        server.stop();
+        server.run();
+//        server.stop();
+    }
+
+    @Test
+    void test11() throws Exception {
+        Tools tools = Tools.getInstance();
+        assertEquals("iso", tools.getExt("aaa.iso"));
+        assertTrue(tools.is_image(Paths.get("aaa.iso")));
+        assertTrue(tools.is_image(Paths.get("vvv/aaa.dmg")));
+        assertTrue(tools.is_image(Paths.get("ccc/dddd/aaa.img")));
+        assertFalse(tools.is_image(Paths.get("aaa/bbb")));
+    }
+
+    @Test
+    void test1() throws Exception {
+        Tools tools = Tools.getInstance();
+Debug.println("local ip:" + tools.get_local_ip());
+tools.list_images(mountPoint).forEach(Debug::println);
+        assertTrue(tools.list_images(mountPoint).size() > 0);
+        Path image = tools.list_images(mountPoint).get(0);
+Debug.println("image: " + image);
+Debug.println("label: " + tools.getLabel(image));
+        int[] bs = tools.block_size(image);
+Debug.println("bsize: " + bs[0] + ", " + bs[1]);
+    }
+
+    @Test
+    void test2() throws Exception {
+        Tools tools = Tools.getInstance();
+        tools.list_optical_drives();
+        //tools.state(Paths.get(moutPoint));
     }
 }
 

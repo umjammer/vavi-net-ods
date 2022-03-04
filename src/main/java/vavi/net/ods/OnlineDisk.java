@@ -81,6 +81,9 @@ public abstract class OnlineDisk {
         }};
     }
 
+    /**
+     * Concrete class for disc image file.
+     */
     public static class DiskImage extends OnlineDisk {
         public DiskImage(Path path) {
             super(path);
@@ -142,7 +145,9 @@ public abstract class OnlineDisk {
         }
     }
 
-
+    /**
+     * Concrete class for real optical disc.
+     */
     public static class OpticalDrive extends OnlineDisk {
         protected int _block_size = 0;
         protected int _vol_size = 0;
@@ -233,6 +238,9 @@ public abstract class OnlineDisk {
         }
     }
 
+    /**
+     * Concrete class for removal disc.
+     */
     public static class RemovableDrive extends OnlineDisk {
         RemovableDrive(Path path) {
             super(path);

@@ -26,16 +26,18 @@ import vavi.net.ods.OnlineDisk.OnlineDiskState;
 public abstract class Tools {
 
     public static Tools getInstance() {
-        return new LinuxTools();
+        String os = System.getProperty("os.name");
+        if (os.startsWith("Mac")) {
+            return new MacTools();
+        } else {
+            return new LinuxTools();
+        }
     }
 
     public InetAddress get_local_ip() {
-        try {
-            Socket s = new Socket();
-            // s.socket.AF_INET, socket.SOCK_DGRAM);
-            s.connect(InetSocketAddress.createUnresolved("10.255.255.255", 1));
-            s.close();
-            return s.getLocalAddress();
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("google.com", 80));
+            return socket.getLocalAddress();
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
@@ -46,7 +48,7 @@ public abstract class Tools {
             return null;
         }
 
-        return filename.substring(0, filename.lastIndexOf('.'));
+        return filename.substring(filename.lastIndexOf('.') + 1);
     }
 
     public boolean is_image(Path path) {
@@ -58,35 +60,117 @@ public abstract class Tools {
         }
     }
 
+    /**
+     * Retrieves disc image files.
+     */
     public List<Path> list_images(String path) throws IOException {
         return Files.list(Paths.get(path)).filter(this::is_image).collect(Collectors.toList());
     }
 
-    protected String _getdev(String line) {
-        final Pattern p = Pattern.compile("dev='(.*?)'");
-        Matcher m = p.matcher(line);
-        return m.find(1) ? m.group(0) : null;
-    }
-
+    /**
+     * Retrieves real optical discs.
+     */
     public abstract List<Path> list_optical_drives() throws IOException;
+
+    /**
+     * Retrieves removable discs.
+     */
+    public abstract List<Path> list_removable_drives() throws IOException;
 
     public abstract String getLabel(Path path) throws IOException;
 
     public abstract int[] block_size(Path path) throws IOException;
 
+    /** for real optical disk */
     public abstract OnlineDiskState state(Path path) throws IOException;
 
+    /** mac commands */
+    static class MacTools extends Tools {
+        @Override
+        public List<Path> list_removable_drives() throws IOException {
+            return Collections.emptyList(); // TODO
+        }
+
+        protected String _getdev(String line) {
+            final Pattern p = Pattern.compile("Name: (.*?)");
+            Matcher m = p.matcher(line);
+            return m.find() ? m.find(1) ? m.group(0) : null : null;
+        }
+
+        @Override
+        public List<Path> list_optical_drives() throws IOException {
+
+            List<Path> drives = new ArrayList<>();
+
+            for (String l : exec("drutil", "list")) {
+                String d = _getdev(l);
+                if (d != null && !d.isEmpty()) {
+                    drives.add(Paths.get(d));
+                }
+            }
+
+            Collections.sort(drives);
+            return drives;
+        }
+
+        @Override
+        public String getLabel(Path path) throws IOException {
+            List<String> out = Tools.exec("/usr/local/bin/isoinfo", "-d", "-i", path.toString());
+
+            for (String line : out) {
+                if (line.startsWith("Volume id:") && line.length() > 11) {
+                    return line.substring(11);
+                }
+            }
+
+            return null;
+        }
+
+        @Override
+        public int[] block_size(Path path) throws IOException {
+            List<String> out = Tools.exec("/usr/local/bin/isoinfo", "-d", "-i", path.toString());
+
+            int block_size = 0, vol_size = 0;
+            for (String line : out) {
+                if (line.startsWith("Volume size is:") && line.length() > 16) {
+                    vol_size = Integer.valueOf(line.substring(16));
+                }
+
+                if (line.startsWith("Logical block size is:") && line.length() > 23) {
+                    block_size = Integer.valueOf(line.substring(23));
+                }
+            }
+            return new int[] { block_size, vol_size };
+        }
+
+        @Override
+        public OnlineDiskState state(Path path) throws IOException {
+            OnlineDiskState _state = OnlineDiskState.READY;
+            return _state;
+        }
+    }
+
+    /** */
     static class LinuxTools extends Tools {
-        public String list_removable_drives() {
+        @Override
+        public List<Path> list_removable_drives() {
+            @SuppressWarnings("unused")
             String script = "grep -Hv ^0$ /sys/block/*/removable |" +
                     "sed s/removable:.*$/device\\/uevent/ |" +
                     "xargs grep -H ^DRIVER=sd |" +
                     "sed s/device.uevent.*$/size/ |" +
                     "xargs grep -Hv ^0$ |" +
                     "cut -d / -f 4";
-            return script;
+            return Collections.emptyList(); // TODO
         }
 
+        protected String _getdev(String line) {
+            final Pattern p = Pattern.compile("dev='(.*?)'");
+            Matcher m = p.matcher(line);
+            return m.find(1) ? m.group(0) : null;
+        }
+
+        @Override
         public List<Path> list_optical_drives() throws IOException {
 
             List<Path> drives = new ArrayList<>();
@@ -102,6 +186,7 @@ public abstract class Tools {
             return drives;
         }
 
+        @Override
         public String getLabel(Path path) throws IOException {
             List<String> out = Tools.exec("isoinfo", "-d", "-i", path.toString());
 
@@ -114,6 +199,7 @@ public abstract class Tools {
             return null;
         }
 
+        @Override
         public int[] block_size(Path path) throws IOException {
             List<String> out = Tools.exec("isoinfo", "-d", "-i", path.toString());
 
@@ -136,8 +222,7 @@ public abstract class Tools {
             @SuppressWarnings("unused")
             int _type;
             OnlineDiskState _state = OnlineDiskState.NOT_READY;
-            String output;
-                output = Tools.exec("setcd", "-i", path.toString()).get(0);
+            String output = Tools.exec("setcd", "-i", path.toString()).get(0);
 
             if (output.contains("is open")) {
                 _state = OnlineDiskState.OPEN;
@@ -163,14 +248,17 @@ public abstract class Tools {
         }
     }
 
+    /** executes command line */
     protected static List<String> exec(String... commandLine) throws IOException {
 
         ProcessBuilder processBuilder = new ProcessBuilder(commandLine);
+System.out.println("$ " + String.join(" ", commandLine));
         Process process = processBuilder.start();
         Scanner s = new Scanner(process.getInputStream());
         List<String> results = new ArrayList<>();
         while (s.hasNextLine()) {
             results.add(s.nextLine());
+System.out.println(results.get(results.size() - 1));
         }
         try {
             process.waitFor();
