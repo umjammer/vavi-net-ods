@@ -25,13 +25,13 @@ public abstract class OnlineDisk {
         EMPTY
     }
 
-    protected Path _path;
-    protected int _size = 0;
-    protected String _label = null;
-    protected OnlineDiskState _state = OnlineDiskState.EMPTY;
+    protected Path path;
+    protected int size = 0;
+    protected String label = null;
+    protected OnlineDiskState state = OnlineDiskState.EMPTY;
 
     OnlineDisk(Path path) {
-        _path = path;
+        this.path = path;
     }
 
     // property
@@ -39,22 +39,22 @@ public abstract class OnlineDisk {
 
     // property
     public OnlineDiskState state() {
-        return _state;
+        return state;
     }
 
     // property
     public Path path() {
-        return _path;
+        return path;
     }
 
     // property
     public int size() throws IOException {
-        return _size;
+        return size;
     }
 
     // property
     public String label() throws IOException {
-        return _label;
+        return label;
     }
 
     abstract void erase();
@@ -88,7 +88,7 @@ public abstract class OnlineDisk {
         public DiskImage(Path path) {
             super(path);
             if (exists()) {
-                _state = OnlineDiskState.READY;
+                state = OnlineDiskState.READY;
             }
         }
 
@@ -99,19 +99,19 @@ public abstract class OnlineDisk {
 
         @Override
         public int size() throws IOException {
-            if (_size == 0 && exists()) {
-                _size = (int) Files.size(path());
+            if (size == 0 && exists()) {
+                size = (int) Files.size(path());
             }
-            return _size;
+            return size;
         }
 
         @Override
         public String label() throws IOException {
-            if (_label == null) {
-                _label = tools.getLabel(_path);
+            if (label == null) {
+                label = tools.getLabel(path);
             }
 
-            return _label;
+            return label;
         }
 
         @Override
@@ -158,10 +158,10 @@ public abstract class OnlineDisk {
 
         // property
         public OnlineDiskState state() {
-            OnlineDiskState old_state = _state;
+            OnlineDiskState old_state = state;
             OnlineDiskState _state;
             try {
-                _state = tools.state(_path);
+                _state = tools.state(path);
             } catch (IOException e) {
                 logging.log(Level.SEVERE, e.getMessage(), e);
                 return OnlineDiskState.NOT_READY;
@@ -170,19 +170,19 @@ public abstract class OnlineDisk {
             if (old_state != _state) {
                 // Change handler...
 
-                _size = 0;
-                _label = null;
+                size = 0;
+                label = null;
             }
             return _state;
         }
 
         @Override
         public String label() throws IOException {
-            if (_label == null) {
-                _label = tools.getLabel(_path);
+            if (label == null) {
+                label = tools.getLabel(path);
             }
 
-            return _label;
+            return label;
         }
 
         int[] block_size() {
@@ -191,14 +191,14 @@ public abstract class OnlineDisk {
 
         @Override
         public int size() throws IOException {
-            if (_size == 0) {
-                int[] sizes = tools.block_size(_path);
+            if (size == 0) {
+                int[] sizes = tools.blockSize(path);
                 _block_size = sizes[0];
                 _vol_size = sizes[1];
             }
-            _size = _vol_size * _block_size;
+            size = _vol_size * _block_size;
 
-            return _size;
+            return size;
         }
 
         @Override
@@ -248,10 +248,10 @@ public abstract class OnlineDisk {
 
         @Override
         public String label() {
-            if (_label == null) {
+            if (label == null) {
                 // Get the label of the removable drive or, the label of the first partition
             }
-            return _label;
+            return label;
         }
 
         @Override

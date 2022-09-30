@@ -75,7 +75,7 @@ public class OdsServer {
 
     // property
     public String host() {
-        return config.get("host", tools.get_local_ip().getHostAddress());
+        return config.get("host", tools.getLocalIp().getHostAddress());
     }
 
     // property
@@ -98,7 +98,7 @@ public class OdsServer {
             h = images.hashCode();
         }
 
-        images = tools.list_images(root()).stream().map(DiskImage::new).collect(Collectors.toList());
+        images = tools.listImages(root()).stream().map(DiskImage::new).collect(Collectors.toList());
 
         if (images.hashCode() != h) {
             changed = true;
@@ -108,7 +108,7 @@ public class OdsServer {
             if (changed == false) {
                 h = drives.hashCode();
             }
-            drives = tools.list_optical_drives().stream().map(OpticalDrive::new).collect(Collectors.toList());
+            drives = tools.listOpticalDrives().stream().map(OpticalDrive::new).collect(Collectors.toList());
             if (changed == false && drives.hashCode() != h) {
                 changed = true;
             }
@@ -141,20 +141,19 @@ public class OdsServer {
 
         server = new Server();
 
-        ServerConnector connector = new ServerConnector(server);
-        connector.setPort(port());
-        server.setConnectors(new Connector[]{connector});
+        try (ServerConnector connector = new ServerConnector(server)) {
+            connector.setPort(port());
+            server.setConnectors(new Connector[]{connector});
 
-        ServletContextHandler context = new ServletContextHandler();
-        context.setContextPath("/");
-        context.addServlet(ODS.class, "/");
-        context.addServlet(Image.class, "/images");
+            ServletContextHandler context = new ServletContextHandler();
+            context.setContextPath("/");
+            context.addServlet(ODS.class, "/");
+            context.addServlet(Image.class, "/images");
 
-        HandlerCollection handlers = new HandlerCollection();
-        handlers.setHandlers(new Handler[]{context, new DefaultHandler()});
-        server.setHandler(handlers);
+            HandlerCollection handlers = new HandlerCollection();
+            handlers.setHandlers(new Handler[]{context, new DefaultHandler()});
+            server.setHandler(handlers);
 
-        try {
             server.start();
             server.join();
         } catch (Exception e) { // let me down

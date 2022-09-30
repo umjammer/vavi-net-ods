@@ -34,7 +34,7 @@ public abstract class Tools {
         }
     }
 
-    public InetAddress get_local_ip() {
+    public InetAddress getLocalIp() {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress("google.com", 80));
             return socket.getLocalAddress();
@@ -63,23 +63,23 @@ public abstract class Tools {
     /**
      * Retrieves disc image files.
      */
-    public List<Path> list_images(String path) throws IOException {
+    public List<Path> listImages(String path) throws IOException {
         return Files.list(Paths.get(path)).filter(this::is_image).collect(Collectors.toList());
     }
 
     /**
      * Retrieves real optical discs.
      */
-    public abstract List<Path> list_optical_drives() throws IOException;
+    public abstract List<Path> listOpticalDrives() throws IOException;
 
     /**
      * Retrieves removable discs.
      */
-    public abstract List<Path> list_removable_drives() throws IOException;
+    public abstract List<Path> listRemovableDrives() throws IOException;
 
     public abstract String getLabel(Path path) throws IOException;
 
-    public abstract int[] block_size(Path path) throws IOException;
+    public abstract int[] blockSize(Path path) throws IOException;
 
     /** for real optical disk */
     public abstract OnlineDiskState state(Path path) throws IOException;
@@ -87,23 +87,23 @@ public abstract class Tools {
     /** mac commands */
     static class MacTools extends Tools {
         @Override
-        public List<Path> list_removable_drives() throws IOException {
+        public List<Path> listRemovableDrives() throws IOException {
             return Collections.emptyList(); // TODO
         }
 
-        protected String _getdev(String line) {
+        protected String getDev(String line) {
             final Pattern p = Pattern.compile("Name: (.*?)");
             Matcher m = p.matcher(line);
             return m.find() ? m.find(1) ? m.group(0) : null : null;
         }
 
         @Override
-        public List<Path> list_optical_drives() throws IOException {
+        public List<Path> listOpticalDrives() throws IOException {
 
             List<Path> drives = new ArrayList<>();
 
             for (String l : exec("drutil", "list")) {
-                String d = _getdev(l);
+                String d = getDev(l);
                 if (d != null && !d.isEmpty()) {
                     drives.add(Paths.get(d));
                 }
@@ -127,33 +127,33 @@ public abstract class Tools {
         }
 
         @Override
-        public int[] block_size(Path path) throws IOException {
+        public int[] blockSize(Path path) throws IOException {
             List<String> out = Tools.exec("/usr/local/bin/isoinfo", "-d", "-i", path.toString());
 
-            int block_size = 0, vol_size = 0;
+            int blockSize = 0, volSize = 0;
             for (String line : out) {
                 if (line.startsWith("Volume size is:") && line.length() > 16) {
-                    vol_size = Integer.valueOf(line.substring(16));
+                    volSize = Integer.parseInt(line.substring(16));
                 }
 
                 if (line.startsWith("Logical block size is:") && line.length() > 23) {
-                    block_size = Integer.valueOf(line.substring(23));
+                    blockSize = Integer.parseInt(line.substring(23));
                 }
             }
-            return new int[] { block_size, vol_size };
+            return new int[] { blockSize, volSize };
         }
 
         @Override
         public OnlineDiskState state(Path path) throws IOException {
-            OnlineDiskState _state = OnlineDiskState.READY;
-            return _state;
+            OnlineDiskState state = OnlineDiskState.READY;
+            return state;
         }
     }
 
     /** */
     static class LinuxTools extends Tools {
         @Override
-        public List<Path> list_removable_drives() {
+        public List<Path> listRemovableDrives() {
             @SuppressWarnings("unused")
             String script = "grep -Hv ^0$ /sys/block/*/removable |" +
                     "sed s/removable:.*$/device\\/uevent/ |" +
@@ -164,19 +164,19 @@ public abstract class Tools {
             return Collections.emptyList(); // TODO
         }
 
-        protected String _getdev(String line) {
+        protected String getDev(String line) {
             final Pattern p = Pattern.compile("dev='(.*?)'");
             Matcher m = p.matcher(line);
             return m.find(1) ? m.group(0) : null;
         }
 
         @Override
-        public List<Path> list_optical_drives() throws IOException {
+        public List<Path> listOpticalDrives() throws IOException {
 
             List<Path> drives = new ArrayList<>();
 
             for (String l : exec("wodim", "--devices")) {
-                String d = _getdev(l);
+                String d = getDev(l);
                 if (d != null && !d.isEmpty()) {
                     drives.add(Paths.get(d));
                 }
@@ -200,17 +200,17 @@ public abstract class Tools {
         }
 
         @Override
-        public int[] block_size(Path path) throws IOException {
+        public int[] blockSize(Path path) throws IOException {
             List<String> out = Tools.exec("isoinfo", "-d", "-i", path.toString());
 
             int block_size = 0, vol_size = 0;
             for (String line : out) {
                 if (line.startsWith("volume size is:") && line.length() > 16) {
-                    vol_size = Integer.valueOf(line.substring(16));
+                    vol_size = Integer.parseInt(line.substring(16));
                 }
 
                 if (line.startsWith("logical block size is:") && line.length() > 23) {
-                    block_size = Integer.valueOf(line.substring(23));
+                    block_size = Integer.parseInt(line.substring(23));
                 }
             }
             return new int[] { block_size, vol_size };
@@ -218,33 +218,33 @@ public abstract class Tools {
 
         @Override
         public OnlineDiskState state(Path path) throws IOException {
-            final Pattern _type_re = Pattern.compile("type (\\d*?)");
+            final Pattern typeRe = Pattern.compile("type (\\d*?)");
             @SuppressWarnings("unused")
-            int _type;
-            OnlineDiskState _state = OnlineDiskState.NOT_READY;
+            int type;
+            OnlineDiskState state = OnlineDiskState.NOT_READY;
             String output = Tools.exec("setcd", "-i", path.toString()).get(0);
 
             if (output.contains("is open")) {
-                _state = OnlineDiskState.OPEN;
+                state = OnlineDiskState.OPEN;
             }
             if (output.contains("not ready")) {
-                _state = OnlineDiskState.NOT_READY;
+                state = OnlineDiskState.NOT_READY;
             }
 
             if (output.contains("disc found")) {
                 // "Disc found in drive: data disc type 1";
-                Matcher m = _type_re.matcher(output);
-                _type = Integer.valueOf(m.group(1));
+                Matcher m = typeRe.matcher(output);
+                type = Integer.parseInt(m.group(1));
 
                 // TODO Extract type
-                _state = OnlineDiskState.READY;
+                state = OnlineDiskState.READY;
             }
 
             if (output.contains("no disc")) {
-                _state = OnlineDiskState.EMPTY;
+                state = OnlineDiskState.EMPTY;
             }
 
-            return _state;
+            return state;
         }
     }
 
@@ -267,9 +267,9 @@ System.out.println(results.get(results.size() - 1));
         }
         s.close();
 
-        int returncode = process.exitValue();
-        if (returncode != 0) {
-            throw new IllegalStateException("Failed to execute wodim command return code " + returncode);
+        int returnCode = process.exitValue();
+        if (returnCode != 0) {
+            throw new IllegalStateException("Failed to execute " + String.join(" ", commandLine) + " command return code " + returnCode);
         }
 
         return results;

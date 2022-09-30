@@ -48,7 +48,7 @@ class OdsTest {
     @BeforeAll
     static void setup() {
         mountPoint = System.getProperty("vavi.net.ods.OdsServer.mountPoint");
-Debug.println("mountPoint:" + mountPoint);
+Debug.println("mountPoint: " + mountPoint);
     }
 
     @Test
@@ -72,20 +72,20 @@ Debug.println("mountPoint:" + mountPoint);
     @Test
     void test1() throws Exception {
         Tools tools = Tools.getInstance();
-Debug.println("local ip:" + tools.get_local_ip());
-tools.list_images(mountPoint).forEach(Debug::println);
-        assertTrue(tools.list_images(mountPoint).size() > 0);
-        Path image = tools.list_images(mountPoint).get(0);
+Debug.println("local ip:" + tools.getLocalIp());
+tools.listImages(mountPoint).forEach(Debug::println);
+        assertTrue(tools.listImages(mountPoint).size() > 0);
+        Path image = tools.listImages(mountPoint).get(0);
 Debug.println("image: " + image);
 Debug.println("label: " + tools.getLabel(image));
-        int[] bs = tools.block_size(image);
+        int[] bs = tools.blockSize(image);
 Debug.println("bsize: " + bs[0] + ", " + bs[1]);
     }
 
     @Test
     void test2() throws Exception {
         Tools tools = Tools.getInstance();
-        tools.list_optical_drives();
+        tools.listOpticalDrives();
         //tools.state(Paths.get(moutPoint));
     }
 }

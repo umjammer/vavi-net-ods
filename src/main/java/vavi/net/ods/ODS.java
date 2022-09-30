@@ -29,7 +29,7 @@ public class ODS extends HttpServlet {
 
     Tools tools = Tools.getInstance();
 
-    static final Pattern _range = Pattern.compile("bytes=(\\d*?)-(\\d*)");
+    static final Pattern range = Pattern.compile("bytes=(\\d*?)-(\\d*)");
 
     ODS(OdsServer server) {
         this.server = server;
@@ -61,10 +61,10 @@ public class ODS extends HttpServlet {
         }
 
         int start = 0, end = 0;
-        Matcher range = _range.matcher(req.getHeader("range"));
+        Matcher range = ODS.range.matcher(req.getHeader("range"));
         if (range.find()) {
-            start = Integer.valueOf(range.group(1));
-            end = Integer.valueOf(range.group(2));
+            start = Integer.parseInt(range.group(1));
+            end = Integer.parseInt(range.group(2));
         } else {
             logging.severe("range: " + range);
             resp.sendError(500, "Range decode error: " + range);
