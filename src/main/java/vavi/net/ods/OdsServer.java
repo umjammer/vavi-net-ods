@@ -17,14 +17,13 @@ import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 import java.util.stream.Collectors;
 
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.DefaultHandler;
-import org.eclipse.jetty.server.handler.HandlerCollection;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 
 import vavi.net.ods.OnlineDisk.DiskImage;
 import vavi.net.ods.OnlineDisk.OpticalDrive;
@@ -158,9 +157,8 @@ public class OdsServer {
             }
             context.addServlet(new ServletHolder(new Image(this)), "/images");
 
-            HandlerCollection handlers = new HandlerCollection();
-            handlers.setHandlers(new Handler[]{context, new DefaultHandler()});
-            server.setHandler(handlers);
+            // jetty 12 spells a HandlerCollection tried in order as a Sequence
+            server.setHandler(new Handler.Sequence(context, new DefaultHandler()));
 
             server.start();
             server.join();

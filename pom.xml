@@ -64,6 +64,20 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <dependency> <!-- the servlet layer, ee10 being jakarta ee 10 (servlet 6.0) -->
+        <groupId>org.eclipse.jetty.ee10</groupId>
+        <artifactId>jetty-ee10-bom</artifactId>
+        <version>12.1.12</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency> <!-- the core it sits on, which the ee10 bom does not cover -->
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-bom</artifactId>
+        <version>12.1.12</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -73,15 +87,12 @@
       <artifactId>jmdns</artifactId>
       <version>3.5.8</version>
     </dependency>
+    <!-- jetty 12, the line still maintained - 11.x is end of life and no longer
+         gets fixes. this pulls jetty-server, -http, -io, -util, -security and
+         -session in, all pinned by the boms above -->
     <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-server</artifactId>
-      <version>11.0.12</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-servlet</artifactId>
-      <version>11.0.12</version>
+      <groupId>org.eclipse.jetty.ee10</groupId>
+      <artifactId>jetty-ee10-servlet</artifactId>
     </dependency>
 
     <dependency>
