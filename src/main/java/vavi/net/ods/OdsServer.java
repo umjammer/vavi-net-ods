@@ -24,6 +24,7 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.DefaultHandler;
 import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 import vavi.net.ods.OnlineDisk.DiskImage;
 import vavi.net.ods.OnlineDisk.OpticalDrive;
@@ -66,9 +67,9 @@ public class OdsServer {
         all.addAll(drives);
         all.addAll(images);
         Map<String, OnlineDisk> result = new HashMap<>();
-        AtomicInteger count = new AtomicInteger(1);
+        AtomicInteger count = new AtomicInteger(0);
         all.forEach(i -> {
-           result.put(String.format("disk%d", count.incrementAndGet()), i);
+           result.put(String.format("disk%d", count.getAndIncrement()), i);
         });
         return result;
     }
@@ -147,8 +148,15 @@ public class OdsServer {
 
             ServletContextHandler context = new ServletContextHandler();
             context.setContextPath("/");
-            context.addServlet(ODS.class, "/");
-            context.addServlet(Image.class, "/images");
+            // register instances: both servlets need a reference to this server,
+            // so they have no no-arg constructor for jetty to reflect on
+            ServletHolder ods = new ServletHolder(new ODS(this));
+            context.addServlet(ods, "/");
+            // hdiutil can only attach a plain path, so serve /disk0.iso as well
+            for (String ext : new String[] {"*.iso", "*.img", "*.dmg"}) {
+                context.addServlet(ods, ext);
+            }
+            context.addServlet(new ServletHolder(new Image(this)), "/images");
 
             HandlerCollection handlers = new HandlerCollection();
             handlers.setHandlers(new Handler[]{context, new DefaultHandler()});

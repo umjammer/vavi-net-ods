@@ -38,7 +38,7 @@ public class Image extends HttpServlet {
         int size = 0;
         boolean success = false;
         try {
-            Path path = Paths.get(server.root(), image.toString());
+            Path path = Paths.get(server.root(), image);
             if (!tools.is_image(path)) {
                 resp.sendError(403, "Unsupported image file");
                 return;

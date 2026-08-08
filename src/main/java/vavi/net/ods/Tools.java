@@ -19,6 +19,7 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import vavi.net.ods.OnlineDisk.OnlineDiskState;
 
@@ -86,6 +87,13 @@ public abstract class Tools {
 
     /** mac commands */
     static class MacTools extends Tools {
+
+        /** cdrtools lands in /usr/local/bin on intel, /opt/homebrew/bin on apple silicon */
+        static final String isoinfo = Stream.of("/usr/local/bin/isoinfo", "/opt/homebrew/bin/isoinfo")
+                .filter(p -> Files.isExecutable(Paths.get(p)))
+                .findFirst()
+                .orElse("isoinfo");
+
         @Override
         public List<Path> listRemovableDrives() throws IOException {
             return Collections.emptyList(); // TODO
@@ -115,7 +123,7 @@ public abstract class Tools {
 
         @Override
         public String getLabel(Path path) throws IOException {
-            List<String> out = Tools.exec("/usr/local/bin/isoinfo", "-d", "-i", path.toString());
+            List<String> out = Tools.exec(isoinfo, "-d", "-i", path.toString());
 
             for (String line : out) {
                 if (line.startsWith("Volume id:") && line.length() > 11) {
@@ -128,7 +136,7 @@ public abstract class Tools {
 
         @Override
         public int[] blockSize(Path path) throws IOException {
-            List<String> out = Tools.exec("/usr/local/bin/isoinfo", "-d", "-i", path.toString());
+            List<String> out = Tools.exec(isoinfo, "-d", "-i", path.toString());
 
             int blockSize = 0, volSize = 0;
             for (String line : out) {

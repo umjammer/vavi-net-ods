@@ -36,6 +36,24 @@ public class ODS extends HttpServlet {
     }
 
     /**
+     * Resolves the disk identifier from either {@code /?disk=disk0.iso} (how finder's
+     * remote disc client asks) or {@code /disk0.iso} (how hdiutil asks: its
+     * CCURLBackingStore refuses urls carrying a query string).
+     */
+    private String resolveDisk(HttpServletRequest req) {
+        String _disk = req.getParameter("disk");
+        if (_disk == null) {
+            String uri = req.getRequestURI();
+            _disk = uri.substring(uri.lastIndexOf('/') + 1);
+        }
+        if (_disk.isEmpty()) {
+            return null;
+        }
+        String extension = tools.getExt(_disk);
+        return extension == null ? _disk : _disk.substring(0, _disk.length() - extension.length() - 1);
+    }
+
+    /**
      * A get request is sent for reading a "chunk" of a disk using a supplied byte
      * range.
      */
@@ -47,9 +65,11 @@ public class ODS extends HttpServlet {
             return;
         }
 
-        String _disk = req.getParameter("disk");
-        String extension = tools.getExt(_disk);
-        String basename = _disk.replace("." + extension, "");
+        String basename = resolveDisk(req);
+        if (basename == null) {
+            resp.sendError(404, "Disk not found");
+            return;
+        }
 
         OnlineDisk disk = null;
         try {
@@ -98,9 +118,11 @@ public class ODS extends HttpServlet {
             return;
         }
 
-        String _disk = req.getParameter("disk");
-        String extension = tools.getExt(_disk);
-        String basename = _disk.replace("." + extension, "");
+        String basename = resolveDisk(req);
+        if (basename == null) {
+            resp.sendError(404, "Disk not found");
+            return;
+        }
 
         OnlineDisk disk = null;
         try {

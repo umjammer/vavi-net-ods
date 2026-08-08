@@ -11,10 +11,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import javax.jmdns.JmDNS;
-import javax.jmdns.JmmDNS;
 import javax.jmdns.ServiceInfo;
-import javax.jmdns.impl.JmmDNSImpl;
-import javax.jmdns.impl.NetworkTopologyEventImpl;
 
 import vavi.net.ods.OdsServer.Plugin;
 import vavi.util.Debug;
@@ -23,19 +20,25 @@ import vavi.util.Debug;
 public class Bonjour implements Plugin {
     static final Logger logging = Logger.getLogger(Bonjour.class.getName());
 
+    /** the bonjour service type macOS's Finder browses for a remote disc */
+    static final String TYPE = "_odisk._tcp.local.";
+
     OdsServer server;
-    JmmDNS zeroconf;
+    JmDNS zeroconf;
     ServiceInfo info = null;
 
     public Bonjour(OdsServer server) throws IOException {
         this.server = server;
-        zeroconf = JmmDNS.Factory.getInstance();
+        // bind to the address we advertise, not to loopback, or nothing on the lan sees us
+        InetAddress address = InetAddress.getByName(server.host());
+        zeroconf = JmDNS.create(address, InetAddress.getLocalHost().getHostName());
+Debug.println("zeroconf: " + address);
         update();
     }
 
     public void update() throws IOException {
         remove();
-        String hostname = InetAddress.getLocalHost().getHostName();
+        String hostname = InetAddress.getLocalHost().getHostName().replaceFirst("\\.local\\.?$", "");
 Debug.println("hostname: " + hostname);
 
         Map<String, String> desc = new HashMap<>();
@@ -49,23 +52,14 @@ Debug.println("hostname: " + hostname);
         }
 
         info = ServiceInfo.create(
-            server.host() + "@" + hostname + "_odisk._tcp.local.",
-            server.host() + "@" + hostname,
+            TYPE,
+            hostname,
             server.port(),
             0, 0,
             desc
         );
 Debug.println("host: " + server.host() + ":" + server.port());
-Debug.println("info: " + info);
-
-        ((JmmDNSImpl) zeroconf).inetAddressAdded(new NetworkTopologyEventImpl(
-            JmDNS.create(InetAddress.getByName("localhost")), InetAddress.getByName("localhost")));
-
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e1) {
-            e1.printStackTrace();
-        }
+Debug.println("info: " + info.getQualifiedName());
 
         add();
     }
@@ -83,6 +77,7 @@ Debug.println("added");
             return;
         }
         zeroconf.unregisterService(info);
+        info = null;
 Debug.println("removed");
     }
 

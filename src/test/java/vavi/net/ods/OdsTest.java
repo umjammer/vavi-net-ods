@@ -59,7 +59,7 @@ Debug.println("mountPoint: " + mountPoint);
         Tools tools = Tools.getInstance();
 Debug.println("local ip:" + tools.getLocalIp());
 tools.listImages(mountPoint).forEach(Debug::println);
-        assertTrue(tools.listImages(mountPoint).size() > 0);
+        assertFalse(tools.listImages(mountPoint).isEmpty());
         Path image = tools.listImages(mountPoint).get(0);
 Debug.println("image: " + image);
 Debug.println("label: " + tools.getLabel(image));
