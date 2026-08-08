@@ -4,6 +4,7 @@
 
 package vavi.net.ods;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.HashMap;
@@ -17,7 +18,7 @@ import vavi.net.ods.OdsServer.Plugin;
 import vavi.util.Debug;
 
 
-public class Bonjour implements Plugin {
+public class Bonjour implements Plugin, Closeable {
     static final Logger logging = Logger.getLogger(Bonjour.class.getName());
 
     /** the bonjour service type macOS's Finder browses for a remote disc */
@@ -81,8 +82,11 @@ Debug.println("added");
 Debug.println("removed");
     }
 
-    protected void finalize() throws IOException {
+    /** Takes the announcement down, rather than leave it to a finalizer that never runs. */
+    @Override
+    public void close() throws IOException {
         zeroconf.unregisterAllServices();
         zeroconf.close();
+        info = null;
     }
 }

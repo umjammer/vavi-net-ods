@@ -4,6 +4,7 @@
 
 package vavi.net.ods;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -49,6 +50,12 @@ public class OdsServer {
 
     Tools tools = Tools.getInstance();
 
+    /** overrides the configured images directory, null to use the configured one */
+    private final String root;
+
+    /** overrides the configured port, 0 to use the configured one */
+    private final int port;
+
     public interface Plugin {
         void update() throws IOException;
     }
@@ -80,11 +87,11 @@ public class OdsServer {
 
     // property
     public int port() {
-        return config.getInt("port", 49152);
+        return port != 0 ? port : config.getInt("port", 49152);
     }
 
     public String root() {
-        return config.get("root", "/mnt/images");
+        return root != null ? root : config.get("root", "/mnt/images");
     }
 
     public void update() throws IOException {
@@ -124,6 +131,17 @@ public class OdsServer {
     }
 
     OdsServer() throws IOException {
+        this(null, 0);
+    }
+
+    /**
+     * @param root the directory the disc images are served from, null for the
+     *             configured one
+     * @param port the port to serve them on, 0 for the configured one
+     */
+    OdsServer(String root, int port) throws IOException {
+        this.root = root;
+        this.port = port;
 
         if (!Files.exists(Paths.get(root()))) {
             // Create the images path if (possible, otherwise raise an error
@@ -136,12 +154,25 @@ public class OdsServer {
         plugin = new Bonjour(this);
     }
 
+    /** Starts serving and waits for the server to be shut down. */
     void run() throws IOException {
+        start();
+
+        try {
+            server.join();
+        } catch (Exception e) { // let me down
+            throw new IOException(e);
+        }
+    }
+
+    /** Starts serving and returns as soon as the server is up. */
+    void start() throws IOException {
         logging.info("Starting webserver");
 
         server = new Server();
 
-        try (ServerConnector connector = new ServerConnector(server)) {
+        try {
+            ServerConnector connector = new ServerConnector(server);
             connector.setPort(port());
             server.setConnectors(new Connector[]{connector});
 
@@ -161,7 +192,6 @@ public class OdsServer {
             server.setHandler(new Handler.Sequence(context, new DefaultHandler()));
 
             server.start();
-            server.join();
         } catch (Exception e) { // let me down
             throw new IOException(e);
         }
@@ -172,6 +202,11 @@ public class OdsServer {
             server.stop();
         } catch (Exception e) { // let me down
             throw new IOException(e);
+        } finally {
+            // or the discs stay announced to everyone browsing, pointing at nothing
+            if (plugin instanceof Closeable) {
+                ((Closeable) plugin).close();
+            }
         }
     }
 

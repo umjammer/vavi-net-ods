@@ -5,8 +5,10 @@
 package vavi.net.ods;
 
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +18,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -26,6 +29,8 @@ import vavi.net.ods.OnlineDisk.OnlineDiskState;
 
 public abstract class Tools {
 
+    static final Logger logging = Logger.getLogger(Tools.class.getName());
+
     public static Tools getInstance() {
         String os = System.getProperty("os.name");
         if (os.startsWith("Mac")) {
@@ -35,10 +40,34 @@ public abstract class Tools {
         }
     }
 
+    /**
+     * @return the address of the interface that reaches the world, or of the first
+     *         one up when nothing does - a server on a lan with no route out still
+     *         has to announce an address its clients can reach
+     */
     public InetAddress getLocalIp() {
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress("google.com", 80));
+            socket.connect(new InetSocketAddress("google.com", 80), 3000);
             return socket.getLocalAddress();
+        } catch (IOException e) {
+            logging.fine("no route out, falling back to a local interface: " + e);
+            return localInterfaceAddress();
+        }
+    }
+
+    private static InetAddress localInterfaceAddress() {
+        try {
+            for (NetworkInterface nic : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!nic.isUp() || nic.isLoopback()) {
+                    continue;
+                }
+                for (InetAddress address : Collections.list(nic.getInetAddresses())) {
+                    if (address instanceof Inet4Address) {
+                        return address;
+                    }
+                }
+            }
+            return InetAddress.getLoopbackAddress();
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
@@ -78,7 +107,28 @@ public abstract class Tools {
      */
     public abstract List<Path> listRemovableDrives() throws IOException;
 
-    public abstract String getLabel(Path path) throws IOException;
+    /**
+     * @return the volume label of a disc or image, the file name without its
+     *         extension when there is no way to read one - cdrtools is not
+     *         installed everywhere, and an announcement still needs a name
+     */
+    public String getLabel(Path path) throws IOException {
+        try {
+            String label = readLabel(path);
+            if (label != null && !label.isBlank()) {
+                return label.trim();
+            }
+        } catch (IOException | RuntimeException e) {
+            logging.fine("cannot read the label of " + path + ": " + e);
+        }
+
+        String name = path.getFileName().toString();
+        String extension = getExt(name);
+        return extension == null ? name : name.substring(0, name.length() - (extension.length() + 1));
+    }
+
+    /** @return the volume label as the platform's tooling reports it, or null */
+    protected abstract String readLabel(Path path) throws IOException;
 
     public abstract int[] blockSize(Path path) throws IOException;
 
@@ -87,6 +137,9 @@ public abstract class Tools {
 
     /** mac commands */
     static class MacTools extends Tools {
+
+        /** the device column of a {@code drutil list} line */
+        static final Pattern drive = Pattern.compile("Name:\\s+(\\S+)");
 
         /** cdrtools lands in /usr/local/bin on intel, /opt/homebrew/bin on apple silicon */
         static final String isoinfo = Stream.of("/usr/local/bin/isoinfo", "/opt/homebrew/bin/isoinfo")
@@ -99,10 +152,10 @@ public abstract class Tools {
             return Collections.emptyList(); // TODO
         }
 
+        /** @return the device of one {@code drutil list} line, null if it names none */
         protected String getDev(String line) {
-            final Pattern p = Pattern.compile("Name: (.*?)");
-            Matcher m = p.matcher(line);
-            return m.find() ? m.find(1) ? m.group(0) : null : null;
+            Matcher m = drive.matcher(line);
+            return m.find() ? m.group(1) : null;
         }
 
         @Override
@@ -122,7 +175,7 @@ public abstract class Tools {
         }
 
         @Override
-        public String getLabel(Path path) throws IOException {
+        protected String readLabel(Path path) throws IOException {
             List<String> out = Tools.exec(isoinfo, "-d", "-i", path.toString());
 
             for (String line : out) {
@@ -160,6 +213,10 @@ public abstract class Tools {
 
     /** */
     static class LinuxTools extends Tools {
+
+        /** the device column of a {@code wodim --devices} line */
+        static final Pattern device = Pattern.compile("dev='(.*?)'");
+
         @Override
         public List<Path> listRemovableDrives() {
             @SuppressWarnings("unused")
@@ -172,10 +229,10 @@ public abstract class Tools {
             return Collections.emptyList(); // TODO
         }
 
+        /** the device column of a {@code wodim --devices} line, null if it names none */
         protected String getDev(String line) {
-            final Pattern p = Pattern.compile("dev='(.*?)'");
-            Matcher m = p.matcher(line);
-            return m.find(1) ? m.group(0) : null;
+            Matcher m = device.matcher(line);
+            return m.find() ? m.group(1) : null;
         }
 
         @Override
@@ -195,11 +252,11 @@ public abstract class Tools {
         }
 
         @Override
-        public String getLabel(Path path) throws IOException {
+        protected String readLabel(Path path) throws IOException {
             List<String> out = Tools.exec("isoinfo", "-d", "-i", path.toString());
 
             for (String line : out) {
-                if (line.startsWith("volume id:") && line.length() > 11) {
+                if (line.startsWith("Volume id:") && line.length() > 11) {
                     return line.substring(11);
                 }
             }
@@ -213,11 +270,11 @@ public abstract class Tools {
 
             int block_size = 0, vol_size = 0;
             for (String line : out) {
-                if (line.startsWith("volume size is:") && line.length() > 16) {
+                if (line.startsWith("Volume size is:") && line.length() > 16) {
                     vol_size = Integer.parseInt(line.substring(16));
                 }
 
-                if (line.startsWith("logical block size is:") && line.length() > 23) {
+                if (line.startsWith("Logical block size is:") && line.length() > 23) {
                     block_size = Integer.parseInt(line.substring(23));
                 }
             }
@@ -226,7 +283,7 @@ public abstract class Tools {
 
         @Override
         public OnlineDiskState state(Path path) throws IOException {
-            final Pattern typeRe = Pattern.compile("type (\\d*?)");
+            final Pattern typeRe = Pattern.compile("type (\\d+)");
             @SuppressWarnings("unused")
             int type;
             OnlineDiskState state = OnlineDiskState.NOT_READY;
@@ -242,7 +299,7 @@ public abstract class Tools {
             if (output.contains("disc found")) {
                 // "Disc found in drive: data disc type 1";
                 Matcher m = typeRe.matcher(output);
-                type = Integer.parseInt(m.group(1));
+                type = m.find() ? Integer.parseInt(m.group(1)) : 0;
 
                 // TODO Extract type
                 state = OnlineDiskState.READY;

@@ -29,7 +29,13 @@ public class ODS extends HttpServlet {
 
     Tools tools = Tools.getInstance();
 
-    static final Pattern range = Pattern.compile("bytes=(\\d*?)-(\\d*)");
+    static final Pattern range = Pattern.compile("bytes=(\\d+)-(\\d*)");
+
+    /** what apple's remote disc client calls itself when it asks for a disc's size */
+    static final String STAT_USER_AGENT = "CCURLBS::statImage";
+
+    /** what it calls itself when it reads disc content */
+    static final String READ_USER_AGENT = "CCURLBS::readDataFork";
 
     ODS(OdsServer server) {
         this.server = server;
@@ -59,7 +65,7 @@ public class ODS extends HttpServlet {
      */
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!req.getHeader("user-agent").equals("CCURLBS::readDataFork")) {
+        if (!READ_USER_AGENT.equals(req.getHeader("user-agent"))) {
             logging.fine("User-Agent: " + req.getHeader("user-agent"));
             resp.sendError(403);
             return;
@@ -80,16 +86,30 @@ public class ODS extends HttpServlet {
             return;
         }
 
-        int start = 0, end = 0;
-        Matcher range = ODS.range.matcher(req.getHeader("range"));
-        if (range.find()) {
-            start = Integer.parseInt(range.group(1));
-            end = Integer.parseInt(range.group(2));
-        } else {
-            logging.severe("range: " + range);
-            resp.sendError(500, "Range decode error: " + range);
+        // nobody shares a disc by that name
+        if (disk == null) {
+            resp.sendError(404, "Disk not found");
             return;
         }
+
+        String requested = req.getHeader("range");
+        int start, end;
+        Matcher range = requested == null ? null : ODS.range.matcher(requested);
+        if (range != null && range.find()) {
+            start = Integer.parseInt(range.group(1));
+            // an open ended "bytes=n-" asks for everything that is left
+            end = range.group(2).isEmpty() ? disk.size() - 1 : Integer.parseInt(range.group(2));
+        } else {
+            logging.fine("range: " + requested);
+            resp.sendError(400, "Range decode error: " + requested);
+            return;
+        }
+
+        if (start >= disk.size() || end < start) {
+            resp.sendError(416, "Range out of bounds: " + requested);
+            return;
+        }
+        end = Math.min(end, disk.size() - 1);
 
         byte[] data;
         if (disk.state() == OnlineDiskState.READY) {
@@ -112,7 +132,7 @@ public class ODS extends HttpServlet {
      */
     @Override
     protected void doHead(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        if (!req.getHeader("user-agent").equals("CCURLBS::statImage")) {
+        if (!STAT_USER_AGENT.equals(req.getHeader("user-agent"))) {
             logging.fine("User-Agent: " + req.getHeader("user-agent"));
             resp.sendError(403);
             return;
@@ -129,6 +149,12 @@ public class ODS extends HttpServlet {
             disk = this.server.disks().get(basename);
         } catch (IOException e) {
             logging.log(Level.SEVERE, "basename: " + basename, e);
+            resp.sendError(404, "Disk not found");
+            return;
+        }
+
+        // nobody shares a disc by that name
+        if (disk == null) {
             resp.sendError(404, "Disk not found");
             return;
         }
