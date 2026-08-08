@@ -60,8 +60,10 @@ class OdsServerTest {
     @BeforeAll
     static void beforeAll(@TempDir Path root) throws Exception {
         image = Iso9660.of(LABEL);
-        Files.write(root.resolve("shared.iso"), image);
-        Files.write(root.resolve("other.img"), Iso9660.of("OTHER"));
+        // named after the label it carries: cdrtools reads the label out of the
+        // image where it is installed, and the file name stands in where it is not
+        Files.write(root.resolve(LABEL + ".iso"), image);
+        Files.write(root.resolve("OTHER.img"), Iso9660.of("OTHER"));
 
         int port = freePort();
         server = new OdsServer(root.toString(), port);
@@ -69,7 +71,7 @@ class OdsServerTest {
 
         http = HttpClient.newHttpClient();
         url = "http://127.0.0.1:" + port;
-        disk = nameOf("shared.iso");
+        disk = nameOf(LABEL + ".iso");
     }
 
     @AfterAll
