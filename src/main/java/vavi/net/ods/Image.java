@@ -14,10 +14,10 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 public class Image extends HttpServlet {
@@ -38,7 +38,7 @@ public class Image extends HttpServlet {
         int size = 0;
         boolean success = false;
         try {
-            Path path = Paths.get(server.root(), image.toString());
+            Path path = Paths.get(server.root(), image);
             if (!tools.is_image(path)) {
                 resp.sendError(403, "Unsupported image file");
                 return;

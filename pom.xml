@@ -8,14 +8,14 @@
 
   <groupId>vavi</groupId>
   <artifactId>vavi-net-ods</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.1</version>
 
-  <name>Online Disk Server for Java</name>
+  <name>Optical Disk Sharing Server for Java</name>
   <organization>
-    <name></name>
+    <name>vavi</name>
   </organization>
   <url>https://github.com/umjammer/vavi-net-ods/</url>
-  <description></description>
+  <description>ODS Server for Java</description>
   <scm>
     <url>https://github.com/umjammer/vavi-net-ods</url>
   </scm>
@@ -26,17 +26,23 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.12.1</version>
         <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
-          <encoding>UTF-8</encoding>
+          <release>17</release>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.0</version>
+        <version>3.2.5</version>
+        <configuration>
+          <argLine>
+            -Djava.util.logging.config.file=${project.build.testOutputDirectory}/logging.properties
+          </argLine>
+          <trimStackTrace>false</trimStackTrace>
+        </configuration>
       </plugin>
     </plugins>
   </build>
@@ -53,7 +59,21 @@
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
-        <version>5.8.1</version>
+        <version>6.0.3</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency> <!-- the servlet layer, ee10 being jakarta ee 10 (servlet 6.0) -->
+        <groupId>org.eclipse.jetty.ee10</groupId>
+        <artifactId>jetty-ee10-bom</artifactId>
+        <version>12.1.12</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency> <!-- the core it sits on, which the ee10 bom does not cover -->
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-bom</artifactId>
+        <version>12.1.12</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -64,28 +84,28 @@
     <dependency>
       <groupId>org.jmdns</groupId>
       <artifactId>jmdns</artifactId>
-      <version>3.5.5</version>
+      <version>3.6.2</version>
     </dependency>
+    <!-- jetty 12, the line still maintained - 11.x is end of life and no longer
+         gets fixes. this pulls jetty-server, -http, -io, -util, -security and
+         -session in, all pinned by the boms above -->
     <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-server</artifactId>
-      <version>9.4.41.v20210516</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-servlet</artifactId>
-      <version>9.4.30.v20200611</version>
+      <groupId>org.eclipse.jetty.ee10</groupId>
+      <artifactId>jetty-ee10-servlet</artifactId>
     </dependency>
 
     <dependency>
       <groupId>com.github.umjammer</groupId>
       <artifactId>vavi-commons</artifactId>
-      <version>1.1.5</version>
+      <version>1.1.19</version>
     </dependency>
+
+    <!-- jmdns logs through slf4j and does not bring the api itself, so running
+         the server without this on the class path dies in JmDNS.create -->
     <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>servlet-api</artifactId>
-      <version>2.4</version>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.18</version>
     </dependency>
 
     <dependency>
@@ -99,8 +119,20 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.junit.platform</groupId>
       <artifactId>junit-platform-commons</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-jdk14</artifactId>
+      <version>2.0.18</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
